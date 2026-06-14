@@ -21,17 +21,32 @@ if sys.stdout.encoding != "utf-8":
 
 # ── Configuration ──────────────────────────────────────────────────────────
 
-DAILY_AMOUNT = 10.0  # $10 per asset per day
+DAILY_AMOUNT = 10.0  # fallback $10 per asset per day
 
 ASSETS = {
-    "BTC":   {"type": "crypto", "ticker": "BTC-USD", "coin_id": "bitcoin",      "name": "Bitcoin"},
-    "QQQ":   {"type": "stock",  "ticker": "QQQ",                                "name": "Invesco QQQ Trust"},
-    "SPY":   {"type": "stock",  "ticker": "SPY",                                "name": "SPDR S&P 500 ETF"},
-    "GOOGL": {"type": "stock",  "ticker": "GOOGL",                              "name": "Alphabet (Google)"},
-    "HYPE":  {"type": "crypto", "ticker": "HYPE-USD", "coin_id": "hyperliquid",  "name": "Hyperliquid (DEX)"},
-    "GLD":   {"type": "stock",  "ticker": "GLD",                                "name": "SPDR Gold Trust"},
-    "BRK.B": {"type": "stock",  "ticker": "BRK-B",                              "name": "Berkshire Hathaway"},
-    "MKL":   {"type": "stock",  "ticker": "MKL",                                "name": "Markel Insurance"},
+    # US / Crypto (daily_amount: 10.0 USD)
+    "BTC":   {"type": "crypto", "ticker": "BTC-USD", "coin_id": "bitcoin",      "name": "Bitcoin",             "currency": "USD", "symbol_prefix": "$",   "daily_amount": 10.0},
+    "QQQ":   {"type": "stock",  "ticker": "QQQ",                                "name": "Invesco QQQ Trust",    "currency": "USD", "symbol_prefix": "$",   "daily_amount": 10.0},
+    "SPY":   {"type": "stock",  "ticker": "SPY",                                "name": "SPDR S&P 500 ETF",     "currency": "USD", "symbol_prefix": "$",   "daily_amount": 10.0},
+    "GOOGL": {"type": "stock",  "ticker": "GOOGL",                              "name": "Alphabet (Google)",    "currency": "USD", "symbol_prefix": "$",   "daily_amount": 10.0},
+    "HYPE":  {"type": "crypto", "ticker": "HYPE-USD", "coin_id": "hyperliquid",  "name": "Hyperliquid (DEX)",   "currency": "USD", "symbol_prefix": "$",   "daily_amount": 10.0},
+    "GLD":   {"type": "stock",  "ticker": "GLD",                                "name": "SPDR Gold Trust",      "currency": "USD", "symbol_prefix": "$",   "daily_amount": 10.0},
+    "BRK.B": {"type": "stock",  "ticker": "BRK-B",                              "name": "Berkshire Hathaway",   "currency": "USD", "symbol_prefix": "$",   "daily_amount": 10.0},
+    "MKL":   {"type": "stock",  "ticker": "MKL",                                "name": "Markel Insurance",     "currency": "USD", "symbol_prefix": "$",   "daily_amount": 10.0},
+    
+    # A-Shares / Chinese Mutual Fund (daily_amount: 100.0 CNY)
+    "沪深300ETF": {"type": "stock", "ticker": "510300.SS", "name": "沪深300ETF", "currency": "CNY", "symbol_prefix": "¥", "daily_amount": 100.0},
+    "诺安多策略A": {"type": "fund",  "ticker": "320016",    "name": "诺安多策略混合A", "currency": "CNY", "symbol_prefix": "¥", "daily_amount": 100.0},
+    "中国石化":  {"type": "stock", "ticker": "600028.SS", "name": "中国石化", "currency": "CNY", "symbol_prefix": "¥", "daily_amount": 100.0},
+    "海澜之家":  {"type": "stock", "ticker": "600398.SS", "name": "海澜之家", "currency": "CNY", "symbol_prefix": "¥", "daily_amount": 100.0},
+    "药明康德":  {"type": "stock", "ticker": "603259.SS", "name": "药明康德", "currency": "CNY", "symbol_prefix": "¥", "daily_amount": 100.0},
+    "宁德时代":  {"type": "stock", "ticker": "300750.SZ", "name": "宁德时代", "currency": "CNY", "symbol_prefix": "¥", "daily_amount": 100.0},
+    "上海莱士":  {"type": "stock", "ticker": "002252.SZ", "name": "上海莱士", "currency": "CNY", "symbol_prefix": "¥", "daily_amount": 100.0},
+    "海尔智家":  {"type": "stock", "ticker": "600690.SS", "name": "海尔智家", "currency": "CNY", "symbol_prefix": "¥", "daily_amount": 100.0},
+    "招商银行":  {"type": "stock", "ticker": "600036.SS", "name": "招商银行", "currency": "CNY", "symbol_prefix": "¥", "daily_amount": 100.0},
+
+    # Hong Kong Shares (daily_amount: 100.0 HKD)
+    "小米（港股）": {"type": "stock", "ticker": "1810.HK",   "name": "小米集团-W", "currency": "HKD", "symbol_prefix": "HK$", "daily_amount": 100.0},
 }
 
 # File to store all transaction history
@@ -89,12 +104,33 @@ def fetch_stock_price(ticker: str, retries: int = 3) -> float | None:
 _price_cache: dict[str, float | None] = {}
 
 
+def fetch_fund_price(fund_code: str) -> float | None:
+    """Fetch Chinese mutual fund NAV (dwjz) from Eastmoney API."""
+    import re
+    try:
+        url = f"https://fundgz.1234567.com.cn/js/{fund_code}.js"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        resp = requests.get(url, headers=headers, timeout=15)
+        resp.raise_for_status()
+        content = re.findall(r"jsonpgz\((.*)\);", resp.text)
+        if content:
+            data = json.loads(content[0])
+            val = data.get("dwjz")
+            if val:
+                return float(val)
+    except Exception as e:
+        print(f"  [ERROR] Eastmoney fund fetch failed for {fund_code}: {e}", file=sys.stderr)
+    return None
+
+
 def get_current_price(symbol: str, asset: dict) -> float | None:
     """Dispatch to the right fetcher based on asset type; caches result."""
     if symbol in _price_cache:
         return _price_cache[symbol]
     if asset["type"] == "crypto":
         price = fetch_crypto_price(asset["coin_id"])
+    elif asset["type"] == "fund":
+        price = fetch_fund_price(asset["ticker"])
     else:
         price = fetch_stock_price(asset["ticker"])
     _price_cache[symbol] = price
@@ -175,14 +211,15 @@ def calculate_stats(portfolio: dict) -> dict:
             "total_pnl": round(total_pnl, 2) if total_pnl is not None else None,
             "total_pnl_pct": round(total_pnl_pct, 2) if total_pnl_pct is not None else None,
             "total_purchases": len(purchases),
-            "daily_investment": DAILY_AMOUNT * len(ASSETS),
+            "daily_investment": sum(a.get("daily_amount", DAILY_AMOUNT) for a in ASSETS.values()),
         },
     }
+
 
 # ── Buy action ─────────────────────────────────────────────────────────────
 
 def execute_daily_purchase(portfolio: dict) -> dict:
-    """Simulate buying $10 of each asset at today's price. Returns updated portfolio."""
+    """Simulate buying local currency amount of each asset at today's price. Returns updated portfolio."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     # Check if we already bought today
@@ -198,16 +235,18 @@ def execute_daily_purchase(portfolio: dict) -> dict:
             print(f"  [SKIP] {sym}: could not fetch price, skipping today")
             continue
 
-        shares = DAILY_AMOUNT / price
+        daily_amount = info.get("daily_amount", DAILY_AMOUNT)
+        shares = daily_amount / price
         purchase = {
             "date": today,
             "symbol": sym,
             "price": round(price, 4),
             "shares": round(shares, 8),
-            "cost": DAILY_AMOUNT,
+            "cost": daily_amount,
         }
         new_purchases.append(purchase)
-        print(f"  [BUY]  ${DAILY_AMOUNT:.2f} {sym} @ ${price:.2f} -> {shares:.6f} shares")
+        prefix = info.get("symbol_prefix", "$")
+        print(f"  [BUY]  {prefix}{daily_amount:.2f} {sym} @ {prefix}{price:.2f} -> {shares:.6f} shares")
         time.sleep(0.5)  # be gentle with APIs
 
     portfolio.setdefault("purchases", []).extend(new_purchases)
@@ -292,6 +331,20 @@ def send_telegram(text: str) -> bool:
 
 # ── Report generation ──────────────────────────────────────────────────────
 
+def get_visual_width(s: str) -> int:
+    """Calculate visual width of a string (Chinese/full-width characters count as 2)."""
+    return sum(2 if ord(c) > 127 else 1 for c in s)
+
+
+def pad_string(s: str, width: int, align: str = "left") -> str:
+    v_width = get_visual_width(s)
+    padding = max(0, width - v_width)
+    if align == "right":
+        return " " * padding + s
+    else:
+        return s + " " * padding
+
+
 def build_report(stats: dict) -> str:
     """Build a formatted Telegram HTML report showing only DCA days, average price, and P&L ratio."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -302,24 +355,32 @@ def build_report(stats: dict) -> str:
     lines.append("")
 
     # Asset table header
+    # Header fields: Asset (left 12), Days (right 4), AvgCost (right 11), P&L% (right 8)
+    # Total visual width = 12 + 1 (space) + 4 + 2 (spaces) + 11 + 2 (spaces) + 8 = 40
     lines.append("<pre>")
-    lines.append(f"{'Asset':<7} {'Days':>5}  {'Avg$':>9}  {'P&L%':>8}")
-    lines.append("-" * 33)
-
-    def fmt(v, width=10, decimals=2):
-        if v is None:
-            return "N/A".rjust(width)
-        return f"{v:{width}.{decimals}f}"
+    header = f"{pad_string('Asset', 12)} {pad_string('Days', 4, 'right')}  {pad_string('AvgCost', 11, 'right')}  {pad_string('P&L%', 8, 'right')}"
+    lines.append(header)
+    lines.append("-" * 40)
 
     for sym, s in stats["assets"].items():
         if s["num_purchases"] == 0:
             continue
+        
+        info = ASSETS.get(sym, {})
+        prefix = info.get("symbol_prefix", "")
+        avg_cost_val = s['avg_cost']
+        avg_cost_str = f"{prefix}{avg_cost_val:.2f}" if avg_cost_val > 0 else "N/A"
+        
         pnl_pct = s['pnl_pct']
         pnl_pct_str = f"{pnl_pct:+.2f}%" if pnl_pct is not None else "N/A"
-        lines.append(
-            f"{sym:<7} {s['num_purchases']:>5}  "
-            f"{fmt(s['avg_cost'], 9, 2)}  {pnl_pct_str:>8}"
+        
+        row = (
+            f"{pad_string(sym, 12)} "
+            f"{pad_string(str(s['num_purchases']), 4, 'right')}  "
+            f"{pad_string(avg_cost_str, 11, 'right')}  "
+            f"{pad_string(pnl_pct_str, 8, 'right')}"
         )
+        lines.append(row)
     lines.append("</pre>")
 
     return "\n".join(lines)
