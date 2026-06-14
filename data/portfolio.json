@@ -1,0 +1,60 @@
+{
+  "purchases": [
+    {
+      "date": "2026-06-14",
+      "symbol": "BTC",
+      "price": 64448.0,
+      "shares": 0.00015516,
+      "cost": 10.0
+    },
+    {
+      "date": "2026-06-14",
+      "symbol": "QQQ",
+      "price": 721.34,
+      "shares": 0.01386309,
+      "cost": 10.0
+    },
+    {
+      "date": "2026-06-14",
+      "symbol": "SPY",
+      "price": 741.75,
+      "shares": 0.01348163,
+      "cost": 10.0
+    },
+    {
+      "date": "2026-06-14",
+      "symbol": "GOOGL",
+      "price": 359.68,
+      "shares": 0.02780249,
+      "cost": 10.0
+    },
+    {
+      "date": "2026-06-14",
+      "symbol": "HYPE",
+      "price": 60.11,
+      "shares": 0.16636167,
+      "cost": 10.0
+    },
+    {
+      "date": "2026-06-14",
+      "symbol": "GLD",
+      "price": 386.54,
+      "shares": 0.02587054,
+      "cost": 10.0
+    },
+    {
+      "date": "2026-06-14",
+      "symbol": "BRK.B",
+      "price": 489.25,
+      "shares": 0.02043945,
+      "cost": 10.0
+    },
+    {
+      "date": "2026-06-14",
+      "symbol": "MKL",
+      "price": 1846.0,
+      "shares": 0.00541712,
+      "cost": 10.0
+    }
+  ]
+}
