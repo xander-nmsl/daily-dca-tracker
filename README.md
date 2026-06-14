@@ -33,7 +33,7 @@
 ### 2. Fork 或克隆此仓库
 
 ```bash
-git clone https://github.com/xander-nnsl/daily-dca-tracker.git
+git clone https://github.com/xander-nmsl/daily-dca-tracker.git
 cd daily-dca-tracker
 ```
 
