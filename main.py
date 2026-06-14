@@ -363,9 +363,6 @@ def build_report(stats: dict) -> str:
     lines.append("-" * 40)
 
     for sym, s in stats["assets"].items():
-        if s["num_purchases"] == 0:
-            continue
-        
         info = ASSETS.get(sym, {})
         prefix = info.get("symbol_prefix", "")
         avg_cost_val = s['avg_cost']
