@@ -8,6 +8,8 @@ on:
     - cron: "0 14 * * 1-5"
   workflow_dispatch:  # Allow manual trigger
 
+# Daily DCA Tracker - auto-invest $10 in 8 assets every weekday
+
 jobs:
   dca:
     runs-on: ubuntu-latest
