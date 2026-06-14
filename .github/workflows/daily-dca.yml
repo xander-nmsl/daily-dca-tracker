@@ -1,0 +1,39 @@
+name: Daily DCA Purchase
+
+on:
+  schedule:
+    # Runs at 14:00 UTC (22:00 Beijing time) on weekdays
+    # US markets close at 4pm ET (20:00 UTC / 21:00 UTC DST),
+    # so 14:00 UTC ensures prices are available
+    - cron: "0 14 * * 1-5"
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  dca:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run DCA Tracker
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
+
+      - name: Commit & push updated portfolio data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/portfolio.json
+          git diff --staged --quiet || git commit -m "📊 Update portfolio data [skip ci]"
+          git push
