@@ -293,7 +293,7 @@ def send_telegram(text: str) -> bool:
 # ── Report generation ──────────────────────────────────────────────────────
 
 def build_report(stats: dict) -> str:
-    """Build a formatted Telegram HTML report."""
+    """Build a formatted Telegram HTML report showing only DCA days, average price, and P&L ratio."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     lines = []
@@ -303,8 +303,8 @@ def build_report(stats: dict) -> str:
 
     # Asset table header
     lines.append("<pre>")
-    lines.append(f"{'Asset':<7} {'Shares':>10}  {'Avg$':>9}  {'Now$':>9}  {'P&L$':>9}  {'P&L%':>7}")
-    lines.append("-" * 64)
+    lines.append(f"{'Asset':<7} {'Days':>5}  {'Avg$':>9}  {'P&L%':>8}")
+    lines.append("-" * 33)
 
     def fmt(v, width=10, decimals=2):
         if v is None:
@@ -314,25 +314,13 @@ def build_report(stats: dict) -> str:
     for sym, s in stats["assets"].items():
         if s["num_purchases"] == 0:
             continue
+        pnl_pct = s['pnl_pct']
+        pnl_pct_str = f"{pnl_pct:+.2f}%" if pnl_pct is not None else "N/A"
         lines.append(
-            f"{sym:<7} {fmt(s['total_shares'], 10, 4)}  "
-            f"{fmt(s['avg_cost'], 9, 2)}  {fmt(s['current_price'], 9, 2)}  "
-            f"{fmt(s['pnl'], 9, 2)}  {fmt(s['pnl_pct'], 7, 2)}"
+            f"{sym:<7} {s['num_purchases']:>5}  "
+            f"{fmt(s['avg_cost'], 9, 2)}  {pnl_pct_str:>8}"
         )
     lines.append("</pre>")
-
-    # Summary
-    sm = stats["summary"]
-    pnl_emoji = "🟢" if (sm["total_pnl"] or 0) >= 0 else "🔴"
-
-    lines.append("")
-    lines.append("<b>── Portfolio Summary ──</b>")
-    lines.append(f"💰 Total Cost:   <b>${sm['total_cost']:,.2f}</b>")
-    lines.append(f"📦 Total Value:  <b>${sm['total_value']:,.2f}</b>")
-    if sm["total_pnl"] is not None:
-        lines.append(f"{pnl_emoji} Total P&amp;L:   <b>${sm['total_pnl']:,.2f} ({sm['total_pnl_pct']:+.2f}%)</b>")
-    lines.append(f"📅 Daily Invest: ${sm['daily_investment']:,.2f}")
-    lines.append(f"📊 Total Trades: {sm['total_purchases']}")
 
     return "\n".join(lines)
 
