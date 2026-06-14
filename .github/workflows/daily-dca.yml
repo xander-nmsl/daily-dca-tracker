@@ -10,6 +10,9 @@ on:
 
 # Daily DCA Tracker - auto-invest $10 in 8 assets every weekday
 
+permissions:
+  contents: write
+
 jobs:
   dca:
     runs-on: ubuntu-latest
